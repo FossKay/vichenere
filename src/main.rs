@@ -1,33 +1,42 @@
 use std::io::{BufRead, Write};
 
-use itertools::Itertools;
-
 const ABC: &str = "abcdefghijklmnopqrstuvwxyz"; //"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ABC_LEN: u8 = 26;
 const ABC_LEN_USIZE: usize = ABC_LEN as usize;
 
+// FROM WIKIPEDIA
+const FREQS: [f32; ABC_LEN_USIZE] = [8.4, 1.06, 3.03, 4.18, 17.26, 1.12, 1.27, 0.92, 7.34, 0.31, 0.05, 6.01, 2.96, 7.13, 5.26, 3.01,0.99, 6.55, 8.08, 7.07, 5.74, 1.32, 0.04, 0.45, 0.3, 0.12];
+const LOWER_BOUND: f32 = 0.065;
+
 fn index_abc(x: char) -> u8 {
     ABC.chars().position(|n| n == x).unwrap() as u8
 }
+
 fn get_abc(x: u8) -> char {
     ABC.chars().nth(x as usize).unwrap()
 }
 
+fn get_score(x: &[u8]) -> f32 {
+    x.iter().map(|&x| FREQS[x as usize]).sum()
+}
+
 fn encrypt(plain: &[u8], key: &[u8]) -> Vec<u8> {
     let mut res: Vec<u8> = Vec::new();
-    let mut i = 0;
-    for char in plain {
-        res.push((char + key[i]) % ABC_LEN);
-        i += 1;
-        i %= key.len();
+    let key_len = key.len();
+    for (i, char) in plain.iter().enumerate() {
+        res.push((char + key[i % key_len]) % ABC_LEN);
     }
     res
 }
 
 fn decrypt(plain: &[u8], key: &[u8]) -> Vec<u8> {
     let mut res: Vec<u8> = Vec::new();
+    let key_len = key.len();
     for (i, char) in plain.iter().enumerate() {
-        res.push((char - key[i % ABC_LEN_USIZE] + 26) % ABC_LEN);
+        // negative modulo is weird
+        // added 26 so that it stays positive
+        // and doesn't overflow (u8)
+        res.push((char + 26 - key[i % key_len]) % ABC_LEN);
     }
     res
 }
@@ -60,13 +69,29 @@ fn main() {
     println!("Message encrypté: {}", to_str(&encrypted));
 
     let key_size = key.len();
+    let mut key_chars = vec![0u8; key_size];
+    let encr_len = encrypted.len();
 
-    for combo in (0..key_size)
-        .map(|_| 0..ABC_LEN)
-        .multi_cartesian_product() {
-            let result = to_str(&decrypt(&encrypted, &combo));
-            //println!("{result}")
+    assert!(key_size <= encr_len - 1); // for chars count
+
+    for key_index in 0..key_size {
+        let mut best = 0f32;
+        for key_char in 0..ABC_LEN {
+            // if the key isn't random, it counts too
+            let mut score = FREQS[key_char as usize];
+            for c in (key_index..encr_len).step_by(key_size) {
+                score += FREQS[((encrypted[c] + 26 - key_char) % ABC_LEN) as usize];
+            }
+            let chars_count = (encr_len - key_index) / key_size
+            if score > best {
+                best = score;
+                key_chars[key_index] = key_char;
+            }
         }
+    }
 
-    println!("Fini!")
+    let decrypted = decrypt(&encrypted, &key_chars);
+    println!("Clé retrouvée: {}", to_str(&key_chars));
+    println!("Message décrypté: {}", to_str(&decrypted));
+    println!("Fini!");
 }
