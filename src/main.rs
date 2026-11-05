@@ -3,35 +3,33 @@ use std::io::{BufRead, Write};
 use itertools::Itertools;
 
 const ABC: &str = "abcdefghijklmnopqrstuvwxyz"; //"ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const ABC_LEN: usize = 26;
+const ABC_LEN: u8 = 26;
 
-fn index_abc(x: char) -> usize {
-    ABC.chars().position(|n| n == x).unwrap()
+fn index_abc(x: char) -> u8 {
+    ABC.chars().position(|n| n == x).unwrap() as u8
 }
-fn get_abc(x: usize) -> char {
-    ABC.chars().nth(x).unwrap()
+fn get_abc(x: u8) -> char {
+    ABC.chars().nth(x as usize).unwrap()
 }
 
-fn encrypt(plain: &str, key: &str) -> String {
-    let mut res = String::new();
+fn encrypt(plain: &[u8], key: &[u8]) -> Vec<u8> {
+    let mut res: Vec<u8> = Vec::new();
     let mut i = 0;
-    for char in plain.chars() {
-        let key_char = key.chars().nth(i).unwrap();
+    for char in plain {
+        res.push((char + key[i]) % ABC_LEN);
         i += 1;
         i %= key.len();
-        res.push(get_abc((index_abc(char) + index_abc(key_char)) % ABC_LEN));
     }
     res
 }
 
-fn decrypt(plain: &str, key: &str) -> String {
-    let mut res = String::new();
+fn decrypt(plain: &[u8], key: &[u8]) -> Vec<u8> {
+    let mut res: Vec<u8> = Vec::new();
     let mut i = 0;
-    for char in plain.chars() {
-        let key_char = key.chars().nth(i).unwrap();
+    for char in plain {
+        res.push((char - key[i] + 26) % ABC_LEN);
         i += 1;
         i %= key.len();
-        res.push(get_abc((index_abc(char) - index_abc(key_char) + 26) % ABC_LEN));
     }
     res
 }
@@ -41,26 +39,28 @@ fn main() {
     let stdin = std::io::stdin();
     let mut message = String::new();
     let mut key = String::new();
+
     print!("Message: ");
     stdout.flush().unwrap();
     stdin.lock().read_line(&mut message).unwrap();
+
     print!("Clé: ");
     stdout.flush().unwrap();
     stdin.lock().read_line(&mut key).unwrap();
-    message = message.trim_end().to_lowercase();
-    key = key.trim_end().to_lowercase();
-    let encrypted = encrypt(&message, &key);
-    println!("Message encrypté: {encrypted}");
+
+    let msg: Vec<u8> = message.trim().to_lowercase().chars().map(|c| index_abc(c)).collect();
+    let key: Vec<u8> = key.trim().to_lowercase().chars().map(|c| index_abc(c)).collect();
+    let encrypted = encrypt(&msg, &key);
+    println!("Message encrypté: {encrypted:?}");
 
     let key_size = key.len();
 
     for combo in (0..key_size)
-        .map(|_| ABC.chars())
+        .map(|_| 0..ABC_LEN)
         .multi_cartesian_product() {
-            let s: String = combo.iter().collect();
-            let result: String = decrypt(&encrypted, &s);
-            //println!("{result}")
+            let result: String = decrypt(&encrypted, &combo).into_iter().map(|x| get_abc(x)).collect();
+            println!("{result}")
         }
 
-    println!("Finished")
+    println!("Fini!")
 }
