@@ -82,7 +82,7 @@ fn main() {
                 score += FREQS[((encrypted[c] + 26 - key_char) % ABC_LEN) as usize];
             }
             let chars_count = (encr_len - key_index) / key_size;
-            score /= chars_count as f32;
+            score /= (1 + chars_count) as f32;
             key_chars[key_index].push((key_char, score));
         }
         // f32 doesn't implement Ord... can't compare :(
